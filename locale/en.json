@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Throughline",
+    "description": "Cross-session memory: search every past conversation turn with a fully local hybrid index (SQLite FTS5 + multilingual ONNX embeddings), auto-indexed, with a settings page and usage accounting. One tool, no network.",
+    "detail": "docs/ARCHITECTURE.md"
+  }
+}

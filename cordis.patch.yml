@@ -1,0 +1,6 @@
+- insert:
+    - id: throughline
+      name: '@local/throughline'
+      config:
+        autoIngest: true
+        minAgeSec: 120

@@ -1,0 +1,51 @@
+{
+  "name": "@local/throughline",
+  "version": "0.11.0",
+  "private": true,
+  "type": "module",
+  "description": "Throughline — cross-session memory for DSH: multilingual (Chinese/English) turn-level hybrid search across all past sessions, auto-indexed, with a settings page and usage accounting.",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "docs",
+    "icon.svg",
+    "service",
+    "tests",
+    "scripts"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-general"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node tests/run.mjs",
+    "fetch-model": "node scripts/fetch-model.mjs"
+  },
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "memory",
+    "retrieval",
+    "sqlite",
+    "onnx",
+    "multilingual"
+  ]
+}

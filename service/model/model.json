@@ -1,0 +1,7 @@
+{
+  "name": "multilingual-e5-small",
+  "pooling": "mean",
+  "queryPrefix": "query: ",
+  "docPrefix": "passage: ",
+  "maxTokens": 254
+}

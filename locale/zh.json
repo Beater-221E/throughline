@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Throughline",
+    "description": "跨会话记忆：用完全本地的混合索引（SQLite FTS5 + 多语 ONNX 向量）检索所有历史对话轮次，自动入库，带设置页与用量统计。只暴露一个工具，不联网。",
+    "detail": "docs/ARCHITECTURE.md"
+  }
+}

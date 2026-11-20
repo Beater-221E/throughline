@@ -1,0 +1,34 @@
+# downloaded model weights (run scripts/fetch-model.mjs)
+service/model/*.onnx
+service/model/tokenizer.json
+service/vendor/
+
+# local runtime data
+storages/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.npz
+*.npy
+usage.jsonl
+events.jsonl
+history.jsonl
+ingest.json
+ingest.log
+watermark.json
+stats.json
+session_stats.json
+control.json
+exclude.json
+pinned.md
+glossary.json
+ingest.lock
+
+# tooling
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+dist/
+*.zip
+.DS_Store

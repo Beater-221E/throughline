@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Local conversation memory">
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="#E8EEFF"/>
+  <path d="M20 25c0-4.4 3.6-8 8-8h8c4.4 0 8 3.6 8 8v14c0 4.4-3.6 8-8 8h-8c-4.4 0-8-3.6-8-8z" fill="none" stroke="#2F5BEA" stroke-width="3"/>
+  <path d="M26 24l6 11 6-11" fill="none" stroke="#2F5BEA" stroke-width="2.4" stroke-linejoin="round"/>
+  <circle cx="26" cy="24" r="2.6" fill="#2F5BEA"/>
+  <circle cx="38" cy="24" r="2.6" fill="#2F5BEA"/>
+  <circle cx="32" cy="35" r="2.6" fill="#2F5BEA"/>
+  <path d="M32 42v5" stroke="#2F5BEA" stroke-width="2.4" stroke-linecap="round"/>
+</svg>
