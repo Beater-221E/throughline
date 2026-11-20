@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.0 — denser default, public docs
+- Default hybrid weight is now **0.7 dense / 0.3 lexical** (0.310 vs 0.275 nDCG@10 on the current
+  1,312-turn corpus); `THROUGHLINE_DENSE_WEIGHT` makes the mix tunable.
+- README rewritten in Chinese; `docs/TECHNICAL-REPORT.md` added (workflow, component rationale,
+  experiments, costs); `docs/EVALUATION.md` merged into it.
+
 ## 0.11.0 — usage accounting
 - One `usage.jsonl` line per call; settings page shows calls, injected tokens, estimated tokens saved,
   estimated time, share of source, latency, optional cost (`control.json → pricePerMTok`).

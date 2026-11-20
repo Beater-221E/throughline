@@ -25,7 +25,7 @@ sessions/*.jsonl.zstd
   ▼
 turns.jsonl ──► memory.py add ──► SQLite (turns + FTS5) + memory.buckets/*.npz
   │                                  │
-  │                                  └─ hybrid search: 0.3·z(dense) + 0.7·z(BM25)
+  │                                  └─ hybrid search: 0.7·z(dense) + 0.3·z(BM25) (default)
   ▼
 agent/created ──► one incremental pass; the live session is excluded
 ```
@@ -64,12 +64,13 @@ improvement measured on the project (see `TECHNICAL-REPORT.md`).
 ```
 dense   = cosine(query, turn)                    (multilingual-e5-small, mean pooling)
 lexical = FTS5 bm25 over the term stream
-hybrid  = 0.3 · z(dense) + 0.7 · z(lexical)
+hybrid  = 0.7 · z(dense) + 0.3 · z(lexical)      (THROUGHLINE_DENSE_WEIGHT, default 0.7)
 pinned  += 0.8                                   (rows with session_id = "pinned")
 select  = turns in score order until the token budget (default 3000) is filled
 ```
 
-`z` is per-query standardization. If the embedding model is missing, search falls back to BM25 only
+`z` is per-query standardization. The dense/lexical mix is a knob: 0.3 measured best on a 1,167-turn
+corpus, 0.7 on the current 1,312-turn corpus; see `TECHNICAL-REPORT.md` for the sweep. If the embedding model is missing, search falls back to BM25 only
 (`mode: "bm25"`); a model whose dimension does not match the stored buckets also falls back instead of
 failing.
 

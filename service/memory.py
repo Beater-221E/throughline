@@ -68,10 +68,10 @@ BUCKET_CAP = int(os.environ.get("THROUGHLINE_BUCKET_CAP", "2048"))
 PINNED_SESSION = "pinned"
 PINNED_BOOST = 0.8
 
-# Dense / lexical mix for hybrid ranking. 0.3 measured best on a 1,167-turn
-# corpus; on the current 1,312-turn corpus a denser mix (0.7) measured better.
-# Exposed as a knob so deployments can tune without editing code.
-DENSE_WEIGHT = min(1.0, max(0.0, float(os.environ.get("THROUGHLINE_DENSE_WEIGHT", "0.3"))))
+# Dense / lexical mix for hybrid ranking. Tuned by sweeping the weight on the
+# evaluation corpus: 0.3 was best at 1,167 turns, 0.7 at 1,312 turns (the
+# current default), so the mix is exposed as a knob instead of being frozen.
+DENSE_WEIGHT = min(1.0, max(0.0, float(os.environ.get("THROUGHLINE_DENSE_WEIGHT", "0.7"))))
 
 REDACTION_FILE = SERVICE_DIR / "redaction.json"
 
@@ -811,8 +811,9 @@ class Service:
                 k = self.pos.get(tid)
                 if k is not None:
                     bvec[k] = s
-            # 0.3 dense / 0.7 lexical: on a real personal corpus the lexical
-            # channel carries most of the signal once CJK bigrams exist.
+            # 0.7 dense / 0.3 lexical by default (see DENSE_WEIGHT): the dense
+            # channel wins anchors and overall nDCG, the lexical channel wins
+            # paraphrases. The knob keeps that trade-off tunable.
             hyb = DENSE_WEIGHT * z(sims) + (1.0 - DENSE_WEIGHT) * z(bvec)
             if len(self.pinned_pos):
                 hyb = hyb.copy()

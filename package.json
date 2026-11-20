@@ -1,6 +1,6 @@
 {
   "name": "@local/throughline",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "type": "module",
   "description": "Throughline — cross-session memory for DSH: multilingual (Chinese/English) turn-level hybrid search across all past sessions, auto-indexed, with a settings page and usage accounting.",
