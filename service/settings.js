@@ -256,6 +256,16 @@ export function createSettings(options) {
     const ok = rows.filter((r) => r.ok !== false);
     const dayOf = (ts) => new Date(Number(ts) || 0).toISOString().slice(0, 10);
     const today = new Date().toISOString().slice(0, 10);
+    const sessions = (() => {
+      try {
+        return fs.readFileSync(path.join(store, 'sessions.jsonl'), 'utf8')
+          .split('\n').filter(Boolean)
+          .map((line) => { try { return JSON.parse(line); } catch { return null; } })
+          .filter(Boolean);
+      } catch { return []; }
+    })();
+    const startedSessions = new Set(sessions.map((s) => s.session).filter(Boolean));
+    const calledSessions = new Set(ok.map((r) => r.session).filter(Boolean));
     const stats = readJson(path.join(store, 'session_stats.json'), {});
     const ctrl = control();
     const price = Number(ctrl.pricePerMTok || 0);
@@ -287,6 +297,12 @@ export function createSettings(options) {
     return {
       calls: ok.length,
       errors: rows.length - ok.length,
+      sessionsStarted: startedSessions.size,
+      sessionsWithCall: calledSessions.size,
+      triggerRate: startedSessions.size
+        ? Number((calledSessions.size / startedSessions.size).toFixed(3)) : 0,
+      callsPerSession: startedSessions.size
+        ? Number((ok.length / startedSessions.size).toFixed(2)) : 0,
       callsToday: ok.filter((r) => dayOf(r.at) === today).length,
       tokensToday: ok.filter((r) => dayOf(r.at) === today).reduce((a, r) => a + Number(r.tokens || 0), 0),
       injectedTokens: tokens,

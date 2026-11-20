@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.0 — injection efficiency, trigger policy, telemetry
+- Excerpts (sentence window around the match) and MMR de-duplication; default budget 3000 → 1500.
+- Explicit trigger policy in the system prompt; `pinned.md` injected at session start
+  (`control.json` → `injectPinned`).
+- Session-start telemetry; Settings shows trigger rate, calls/session and empty-result rate.
+- `docs/VALIDATION.md`: the three-layer protocol for proving end-to-end efficiency.
+
 ## 0.12.0 — denser default, public docs
 - Default hybrid weight is now **0.7 dense / 0.3 lexical** (0.310 vs 0.275 nDCG@10 on the current
   1,312-turn corpus); `THROUGHLINE_DENSE_WEIGHT` makes the mix tunable.

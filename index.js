@@ -234,16 +234,27 @@ export function apply(ctx, config = {}) {
   }, 'throughline: service heartbeat');
 
   const usageFile = path.join(store, 'usage.jsonl');
+  const sessionsFile = path.join(store, 'sessions.jsonl');
   const USAGE_CAP = 5000;
+  const SESSION_CAP = 2000;
 
-  function appendUsage(entry) {
+  function appendBounded(file, line, cap) {
     try {
-      fs.appendFileSync(usageFile, JSON.stringify(entry) + '\n', 'utf8');
-      const lines = fs.readFileSync(usageFile, 'utf8').split('\n').filter(Boolean);
-      if (lines.length > USAGE_CAP) {
-        fs.writeFileSync(usageFile, lines.slice(-USAGE_CAP).join('\n') + '\n', 'utf8');
+      fs.appendFileSync(file, `${line}\n`, 'utf8');
+      const lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean);
+      if (lines.length > cap) {
+        fs.writeFileSync(file, lines.slice(-cap).join('\n') + '\n', 'utf8');
       }
     } catch { /* accounting is best effort */ }
+  }
+
+  function appendUsage(entry) {
+    appendBounded(usageFile, JSON.stringify(entry), USAGE_CAP);
+  }
+
+  /** Denominator for the trigger rate: one line per started session. */
+  function appendSession(session) {
+    appendBounded(sessionsFile, JSON.stringify({ at: Date.now(), session: session || null }), SESSION_CAP);
   }
 
   function readStatus() {
@@ -294,6 +305,7 @@ export function apply(ctx, config = {}) {
   function onSessionStart(agent) {
     const id = agent?.id ? String(agent.id) : null;
     state.lastSession = id;
+    appendSession(id);
     startServer().catch(() => { /* tool call will surface it */ });
     if (!autoIngest || (id && state.seen.has(id))) return;
     if (id) state.seen.add(id);
@@ -330,7 +342,7 @@ export function apply(ctx, config = {}) {
         },
         budget_tokens: {
           type: 'number',
-          description: 'Approximate token budget for the returned turns (default 3000; typical range 1000-6000).',
+          description: 'Approximate token budget for the returned turns (default 1500; typical range 800-3000).',
         },
       },
     },
@@ -400,8 +412,8 @@ export function apply(ctx, config = {}) {
     async execute(args) {
       const query = String(args.query || '').trim();
       if (!query) throw new Error('query must be a non-empty string');
-      let budget = Number(args.budget_tokens ?? 3000);
-      if (!Number.isFinite(budget)) budget = 3000;
+      let budget = Number(args.budget_tokens ?? 1500);
+      if (!Number.isFinite(budget)) budget = 1500;
       budget = Math.max(500, Math.min(8000, Math.round(budget)));
       let res;
       try {
@@ -465,14 +477,35 @@ export function apply(ctx, config = {}) {
           return 'a local memory index is available';
         }
       };
+      // Pinned rules are the only deterministic channel: they apply without a
+      // retrieval call. Users opt out with control.json {"injectPinned": false}.
+      const pinnedBlock = () => {
+        try {
+          const ctrl = JSON.parse(fs.readFileSync(path.join(store, 'control.json'), 'utf8'));
+          if (ctrl.injectPinned === false) return '';
+        } catch { /* default: on */ }
+        try {
+          const rules = fs.readFileSync(path.join(store, 'pinned.md'), 'utf8').split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith('- '))
+            .map((line) => line.slice(2).trim())
+            .filter(Boolean);
+          if (!rules.length) return '';
+          return '\nPinned rules the user wants applied in every session:\n'
+            + rules.slice(0, 20).map((rule) => `- ${rule}`).join('\n');
+        } catch { return ''; }
+      };
       sp.systemPrompt.variable('throughline_index', indexSummary);
+      sp.systemPrompt.variable('throughline_pinned', pinnedBlock);
       sp.systemPrompt.section({
         name: 'throughline',
         order: 50,
-        text: 'Local conversation memory: {{throughline_index}}. When the user refers to something '
-          + 'said in an earlier session, or a fact may exist in their history but not in this '
-          + 'context, call memory_search before answering. Chinese queries retrieve best here; '
-          + 'English is fine for distinctive names, commands and terms.',
+        text: 'Local conversation memory: {{throughline_index}}. Call memory_search BEFORE answering '
+          + 'when the user refers to something said before (phrases like 上次/之前/继续/前面/'
+          + '我们之前定的/规则/约定), continues an older project, or asks about past preferences, '
+          + 'plans or decisions; if the results do not contain the answer, say the memory has '
+          + 'nothing relevant instead of guessing. Chinese queries retrieve best here; English is '
+          + 'fine for distinctive names, commands and terms.{{throughline_pinned}}',
       });
     } catch { /* profiles without the system prompt service keep working */ }
   });

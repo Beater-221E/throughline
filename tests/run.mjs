@@ -368,10 +368,12 @@ await check('usage summary aggregates calls, tokens and avoided tokens', async (
   fs.mkdirSync(store, { recursive: true });
   const now = Date.now();
   fs.writeFileSync(path.join(store, 'usage.jsonl'), [
-    JSON.stringify({ at: now, ok: true, tokens: 400, turns: 3, latency_ms: 4, sources: ['s1'], mode: 'hybrid' }),
-    JSON.stringify({ at: now, ok: true, tokens: 600, turns: 2, latency_ms: 8, sources: ['s1'], mode: 'hybrid' }),
+    JSON.stringify({ at: now, ok: true, session: 'sess-a', tokens: 400, turns: 3, latency_ms: 4, sources: ['s1'], mode: 'hybrid' }),
+    JSON.stringify({ at: now, ok: true, session: 'sess-a', tokens: 600, turns: 2, latency_ms: 8, sources: ['s1'], mode: 'hybrid' }),
     JSON.stringify({ at: now, ok: false, error: 'boom' }),
   ].join('\n') + '\n', 'utf8');
+  fs.writeFileSync(path.join(store, 'sessions.jsonl'),
+    JSON.stringify({ at: now, session: 'sess-a' }) + '\n' + JSON.stringify({ at: now, session: 'sess-b' }) + '\n', 'utf8');
   fs.writeFileSync(path.join(store, 'session_stats.json'),
     JSON.stringify({ s1: { tokens: 5000, turns: 40 } }), 'utf8');
   const settings = createSettings({
@@ -386,6 +388,30 @@ await check('usage summary aggregates calls, tokens and avoided tokens', async (
   assert(u.avoidedTokens === 9000, `avoided=${u.avoidedTokens}`);
   assert(u.hitRate === 1, `hit=${u.hitRate}`);
   assert(u.cost === null, `cost=${u.cost}`);
+  assert(u.sessionsStarted === 2, `started=${u.sessionsStarted}`);
+  assert(u.sessionsWithCall === 1, `called=${u.sessionsWithCall}`);
+  assert(u.triggerRate === 0.5, `trigger=${u.triggerRate}`);
+});
+
+
+// ------------------------------------- 17. long turns are cut before injection
+await check('long turns are excerpted to their matching sentences', async () => {
+  const store = path.join(WORK, 'excerpt-store');
+  fs.mkdirSync(store, { recursive: true });
+  const db = path.join(store, 'memory.sqlite');
+  const filler = Array.from({ length: 30 }, (_, i) => `第${i}段：天气、交通与饮食的无关描述。`).join(' ');
+  const long = `${filler} 关键结论：发布前必须运行 scripts/audit.sh --strict。 ${filler}`;
+  const file = path.join(store, 'turns.jsonl');
+  fs.writeFileSync(file, JSON.stringify({
+    session_id: 's1', seq: 0, turn_idx: 0, role: 'assistant', date: '2026-10-02', text: long,
+  }) + '\n', 'utf8');
+  py([MEMORY, 'add', '--db', db, '--jsonl', file, '--model-dir', MODEL]);
+  const out = py([MEMORY, 'search', '--db', db, '--query', '发布前要运行什么检查',
+    '--model-dir', MODEL, '--budget', '1500']);
+  assert(out.turns.length === 1, `turns=${out.turns.length}`);
+  assert(out.turns[0].text.includes('audit.sh'), 'excerpt lost the answer');
+  assert(out.turns[0].text.length < 500, `not excerpted: ${out.turns[0].text.length} chars`);
+  assert(out.tokens < 300, `tokens=${out.tokens}`);
 });
 
 // --------------------------------------------------------------- summary

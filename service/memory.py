@@ -4,7 +4,7 @@
 Modes:
   python memory.py init   --db PATH
   python memory.py add    --db PATH --jsonl FILE [--status PATH]
-  python memory.py search --db PATH --query "..." [--budget 3000]
+  python memory.py search --db PATH --query "..." [--budget 1500]
   python memory.py stats  --db PATH
   python memory.py serve  --db PATH        # JSON-lines over stdin/stdout (persistent)
 
@@ -15,7 +15,8 @@ tail bucket, and the number of buckets follows the corpus size instead of being
 configured. `serve` reloads when the manifest changes, so writers that finish
 after the service started are visible on the next query.
 
-Search = 0.7*z(dense) + 0.3*z(BM25), greedily filled to a token budget. If the ONNX
+Search = 0.7*z(dense) + 0.3*z(BM25); turns are de-duplicated (MMR), long turns
+are cut to their matching sentences, then filled to a token budget. If the ONNX
 model is missing, search degrades to BM25 only.
 """
 import argparse
@@ -119,6 +120,39 @@ def tokens(s):
         out.extend(run[i:i + 2] for i in range(len(run) - 1))
         out.extend(run)
     return [t for t in out if t]
+
+
+EXCERPTS = os.environ.get("THROUGHLINE_EXCERPTS", "1") != "0"
+MMR_LAMBDA = float(os.environ.get("THROUGHLINE_MMR", "0.35"))
+
+
+def make_excerpt(text, query, max_chars=600):
+    """Shrink a long turn to the sentences around its best query match.
+
+    Injecting whole turns spends the token budget on text the model does not
+    need. A sentence window keeps the relevant part and cuts roughly half of
+    the bytes on long turns; short turns are returned unchanged.
+    """
+    text = str(text)
+    if len(text) <= max_chars:
+        return text
+    parts = [p.strip() for p in re.split(r"(?<=[。！？!?])|\n+", text) if p.strip()]
+    if len(parts) <= 1:
+        return text[:max_chars].rstrip() + "…"
+    q = set(tokens(query))
+
+    def score(part):
+        pt = set(tokens(part))
+        if not q or not pt:
+            return 0.0
+        return len(q & pt) / (len(pt) ** 0.5)
+
+    best = max(range(len(parts)), key=lambda i: (score(parts[i]), -i))
+    lo, hi = max(0, best - 1), min(len(parts), best + 2)
+    out = " ".join(parts[lo:hi])
+    if len(out) > max_chars:
+        out = out[:max_chars].rstrip() + "…"
+    return ("…" if lo > 0 else "") + out + ("…" if hi < len(parts) else "")
 
 
 def db_paths(db):
@@ -766,7 +800,42 @@ class Service:
             return {}
         return {int(r[0]): -float(r[1]) for r in rows}
 
-    def search(self, query, budget=3000):
+    def _select(self, order, score_of, query, budget):
+        """Greedy MMR + excerpt selection within a token budget.
+
+        Pure score order wastes the budget on near-duplicate turns (the same
+        decision quoted in several sessions) and on full turns whose relevant
+        sentence is a fraction of their length. MMR penalises overlap with
+        already selected turns; excerpts cut long turns to the matching
+        sentences. Both changes target injected tokens, not ranking.
+        """
+        pool = [(int(k), score_of(k), set(tokens(self.texts[k])))
+                for k in list(order)[:80]]
+        sel, used, chosen = [], 0, []
+        while pool:
+            best_i, best_s = 0, -1e18
+            for i, (k, sc, ts) in enumerate(pool):
+                sim = 0.0
+                for cs in chosen:
+                    inter = len(ts & cs)
+                    if inter:
+                        sim = max(sim, inter / (len(ts | cs) or 1))
+                s = sc - MMR_LAMBDA * sim
+                if s > best_s:
+                    best_i, best_s = i, s
+            k, sc, ts = pool.pop(best_i)
+            text = make_excerpt(self.texts[k], query) if EXCERPTS else self.texts[k]
+            t = est_tok(text)
+            if used + t > budget and sel:
+                continue
+            sel.append((k, text, t))
+            chosen.append(ts)
+            used += t
+            if used >= budget:
+                break
+        return sel, used
+
+    def search(self, query, budget=1500):
         t0 = time.perf_counter()
         self._maybe_reload()
         if not self.rows:
@@ -787,20 +856,11 @@ class Service:
                 return {"query": query, "mode": "bm25", "tokens": 0, "turns": [],
                         "n": len(self.rows),
                         "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
-            order = sorted(fts, key=lambda i: -fts[i])
-            sel, used = [], 0
-            for tid in order:
-                k = self.pos.get(tid)
-                if k is None:
-                    continue
-                t = est_tok(self.texts[k])
-                if used + t > budget and sel:
-                    continue
-                sel.append(k)
-                used += t
-                if used >= budget:
-                    break
-            mode, scores = "bm25", {k: fts[self.ids[k]] for k in sel}
+            order = [self.pos[tid] for tid in sorted(fts, key=lambda i: -fts[i])
+                     if tid in self.pos]
+            sel, used = self._select(order, lambda k: float(fts.get(self.ids[k], 0.0)),
+                                     query, budget)
+            mode, scores = "bm25", {k: float(fts.get(self.ids[k], 0.0)) for k, _, _ in sel}
         else:
             def z(a):
                 a = np.asarray(a, dtype=np.float32)
@@ -818,25 +878,17 @@ class Service:
             if len(self.pinned_pos):
                 hyb = hyb.copy()
                 hyb[self.pinned_pos] += PINNED_BOOST
-            order = np.argsort(-hyb)
-            sel, used = [], 0
-            for k in order:
-                t = est_tok(self.texts[k])
-                if used + t > budget and sel:
-                    continue
-                sel.append(int(k))
-                used += t
-                if used >= budget:
-                    break
-            mode, scores = "hybrid", {k: float(hyb[k]) for k in sel}
+            order = [int(k) for k in np.argsort(-hyb)]
+            sel, used = self._select(order, lambda k: float(hyb[k]), query, budget)
+            mode, scores = "hybrid", {k: float(hyb[k]) for k, _, _ in sel}
 
         out = []
-        for k in sel:
+        for k, text, t in sel:
             r = self.rows[k]
             out.append({"id": int(r[0]), "session_id": r[1], "turn_idx": r[2],
-                        "role": r[3], "date": r[4], "text": r[5],
+                        "role": r[3], "date": r[4], "text": text,
                         "score": round(float(scores.get(k, 0.0)), 4),
-                        "tokens": est_tok(r[5])})
+                        "tokens": t})
         return {"query": query, "mode": mode, "tokens": used, "turns": out,
                 "n": len(self.rows), "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
 
@@ -884,7 +936,7 @@ def serve(db, model_dir=None):
             print(json.dumps({"ok": True, "bye": True}), flush=True)
             return
         try:
-            out = svc.search(req.get("query", ""), int(req.get("budget", 3000)))
+            out = svc.search(req.get("query", ""), int(req.get("budget", 1500)))
             out["ok"] = True
             print(json.dumps(out, ensure_ascii=False), flush=True)
         except Exception as e:
@@ -903,7 +955,7 @@ def main():
             p.add_argument("--status", default=None)
         if name == "search":
             p.add_argument("--query", required=True)
-            p.add_argument("--budget", type=int, default=3000)
+            p.add_argument("--budget", type=int, default=1500)
         if name == "stats":
             p.add_argument("--out", default=None)
     args = ap.parse_args()
