@@ -414,6 +414,21 @@ await check('long turns are excerpted to their matching sentences', async () => 
   assert(out.tokens < 300, `tokens=${out.tokens}`);
 });
 
+
+// ------------------------------------- 18. dense weight follows query language
+await check('dense weight adapts to the query language', async () => {
+  const script = [
+    'import sys',
+    `sys.path.insert(0, ${JSON.stringify(path.join(ROOT, 'service'))})`,
+    'import memory',
+    'print(memory.dense_weight("hello world"), memory.dense_weight("中文查询"))',
+  ].join('\n');
+  const res = spawnSync(PY, ['-c', script], { encoding: 'utf8', timeout: 30_000 });
+  const [en, zh] = (res.stdout || '').trim().split(/\s+/).map(Number);
+  assert(en === 1.0, `en=${en}`);
+  assert(zh === 0.7, `zh=${zh}`);
+});
+
 // --------------------------------------------------------------- summary
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

@@ -65,7 +65,8 @@ improvement measured on the project (see `TECHNICAL-REPORT.md`).
 ```
 dense   = cosine(query, turn)                    (multilingual-e5-small, mean pooling)
 lexical = FTS5 bm25 over the term stream
-hybrid  = 0.7 · z(dense) + 0.3 · z(lexical)      (THROUGHLINE_DENSE_WEIGHT, default 0.7)
+hybrid  = wd · z(dense) + (1-wd) · z(lexical)
+          wd = 0.7 for CJK queries, 1.0 for English ones (both tunable)
 pinned  += 0.8                                   (rows with session_id = "pinned")
 select  = greedy MMR over the top 40, long turns cut to their matching sentences,
           at most 12 turns, until the token budget (default 1500) is filled

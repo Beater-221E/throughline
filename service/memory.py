@@ -73,6 +73,16 @@ PINNED_BOOST = 0.8
 # evaluation corpus: 0.3 was best at 1,167 turns, 0.7 at 1,312 turns (the
 # current default), so the mix is exposed as a knob instead of being frozen.
 DENSE_WEIGHT = min(1.0, max(0.0, float(os.environ.get("THROUGHLINE_DENSE_WEIGHT", "0.7"))))
+# English natural-language queries are usually asking across languages (the
+# corpus is mostly Chinese). The dense channel is the only one that crosses
+# that gap, so it gets the whole weight there; the sweep measured 0.117 vs 0.072
+# nDCG on the cross-lingual layer with no loss on anchors/paraphrase.
+EN_DENSE_WEIGHT = min(1.0, max(0.0, float(os.environ.get("THROUGHLINE_EN_DENSE_WEIGHT", "1.0"))))
+CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def dense_weight(query):
+    return DENSE_WEIGHT if CJK_RE.search(str(query)) else EN_DENSE_WEIGHT
 
 REDACTION_FILE = SERVICE_DIR / "redaction.json"
 
@@ -880,7 +890,8 @@ class Service:
             # 0.7 dense / 0.3 lexical by default (see DENSE_WEIGHT): the dense
             # channel wins anchors and overall nDCG, the lexical channel wins
             # paraphrases. The knob keeps that trade-off tunable.
-            hyb = DENSE_WEIGHT * z(sims) + (1.0 - DENSE_WEIGHT) * z(bvec)
+            wd = dense_weight(query)
+            hyb = wd * z(sims) + (1.0 - wd) * z(bvec)
             if len(self.pinned_pos):
                 hyb = hyb.copy()
                 hyb[self.pinned_pos] += PINNED_BOOST

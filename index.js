@@ -330,7 +330,9 @@ export function apply(ctx, config = {}) {
       + 'something said in an earlier session, asks about past preferences, plans, or events, or '
       + 'when the current context is missing a fact that may exist in their history. This history '
       + 'is mostly Chinese: Chinese queries retrieve best, while English works for distinctive '
-      + 'names, commands and terms.',
+      + 'names, commands and terms. Typical triggers: "上次定的交付检查是什么", '
+      + '"之前评估 reranker 的结论", "what did we decide about the embedding model". '
+      + 'English queries are routed to the dense channel, which crosses languages better.',
     parameters: {
       type: 'object',
       additionalProperties: false,

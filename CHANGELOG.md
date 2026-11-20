@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.0 — language-aware weighting
+- Queries without CJK characters use the dense channel only (weight 1.0); Chinese queries keep 0.7.
+  Measured: overall nDCG 0.310 → 0.326, cross-lingual 0.072 → 0.117, anchors/paraphrase unchanged.
+- Both weights are tunable (`THROUGHLINE_DENSE_WEIGHT` / `THROUGHLINE_EN_DENSE_WEIGHT`).
+- Tool description lists trigger examples.
+
 ## 0.13.0 — injection efficiency, trigger policy, telemetry
 - Excerpts (sentence window around the match) and MMR de-duplication; default budget 3000 → 1500;
   at most 12 turns per call; selection profiled to ~25 ms.
