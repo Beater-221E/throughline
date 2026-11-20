@@ -42,6 +42,7 @@ agent/created ──► one incremental pass; the live session is excluded
 | `ingest.json` / `ingest.log` / `history.jsonl` | last run state, log, bounded run history |
 | `events.jsonl` | per-session turn events consumed by the toast feed |
 | `usage.jsonl` | one line per `memory_search` call (mode, turns, tokens, latency, source sessions) |
+| `rules.jsonl` | rules extracted from explicit user statements, injected at session start |
 | `sessions.jsonl` | one line per started session — the denominator for the trigger rate |
 | `session_stats.json` | per-session turn/token size, used for the "tokens saved" estimate |
 | `pinned.md` / `glossary.json` | human-maintained rules and term expansion |
@@ -92,7 +93,9 @@ of `[CLS]/[SEP]` (detected at load). Changing the model requires `purge` + a ful
 ## Triggers and lifecycle
 
 - **Bootstrap**: first load with an empty index starts a detached full ingest.
-- **Session start** also records telemetry and injects `pinned.md` into the system prompt (deterministic
+- **Ingest** additionally extracts explicit user-stated rules from finished sessions into `rules.jsonl`
+  (no assistant-generated knowledge), de-duplicated against `pinned.md` and editable in Settings.
+- **Session start** also records telemetry and injects `pinned.md` and captured rules into the system prompt (deterministic
   rules, no retrieval needed); `agent/created` stats the session directory and ingests finished sessions only
   (excluded by `--exclude <current session>` and by a 120 s minimum age).
 - **Single writer**: an `ingest.lock` with a pid check plus a 60 s debounce.

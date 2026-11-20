@@ -22,6 +22,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { zstdDecompressSync } from 'node:zlib';
+import { extractRules, saveRules } from './rules.mjs';
 import { fileURLToPath } from 'node:url';
 
 const MAGIC = 0xfd2fb528;
@@ -387,6 +388,8 @@ async function main() {
     const perFile = [];
     let turns = 0;
     let dropped = 0;
+    let rulesAdded = 0;
+    const pinnedForDedupe = readPinned().map((r) => `- ${r}`).join('\n');
     let redactions = 0;
     for (let i = 0; i < changed.length; i++) {
       const s = changed[i];
@@ -409,6 +412,9 @@ async function main() {
         }
         turns += kept;
         okFiles.push(s);
+        try {
+          rulesAdded += saveRules(STORE, s.id, extractRules(got.turns), pinnedForDedupe);
+        } catch { /* rule capture is best effort */ }
         perFile.push({ session: s.id, ws: s.ws, turns: kept, redacted: redactions,
           tokens: Math.round(chars / 4) });
       } catch (e) {
@@ -425,7 +431,8 @@ async function main() {
     } else if (perFile.length > 5) {
       appendEvent({ kind: 'turns', sessions: perFile.length, turns, full: FULL });
     }
-    writeStatus({ phase: 'embed', files: okFiles.length, turns, warnings: warnings.slice(0, 5) });
+    writeStatus({ phase: 'embed', files: okFiles.length, turns, rules: rulesAdded,
+      warnings: warnings.slice(0, 5) });
     const r = await runPython(TMP);
     let summary = null;
     try { summary = JSON.parse((r.out || '').trim().split('\n').pop()); } catch { /* ignore */ }
@@ -447,6 +454,7 @@ async function main() {
     writeStatus({ phase: 'ready', files: okFiles.length, turns, elapsed_ms: now - t0,
       added: summary?.added ?? null, buckets: summary?.buckets ?? null,
       model: summary?.model ?? null, redacted: redactions, filtered: dropped,
+      rules: rulesAdded,
       sessions: summary?.sessions ?? null, pinned: pinned.facts,
       excludedWorkspaces: rules.workspaces.length, excludedSessions: rules.sessions.length,
       warnings: warnings.slice(0, 5) });

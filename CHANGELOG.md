@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 — rule capture
+- Explicit user-stated rules ("以后…", "必须…", "不要…") are extracted during ingest into `rules.jsonl`
+  and injected at the next session start; no assistant-generated knowledge is stored.
+- De-duplicated against `pinned.md`; removable from Settings (only removal is needed).
+- Adds `service/rules.mjs` + test 19.
+
 ## 1.0.0 — first stable release (2026-11-20)
 
 第一个稳定版本。功能与文档冻结如下：

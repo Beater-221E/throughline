@@ -67,7 +67,9 @@ window.__ModuleLoader__.load({
         usageCalls: '调用',
         usageToday: '今日',
         usageHit: '命中率',
-        usageTrigger: '触发率',
+        rulesTitle: '自动规则',
+        ruleRemove: '删除这条规则',
+        rulesHint: '从你过去会话里抽取的明确要求；不满意的删掉即可。会话开始时会随系统提示注入。',
         usageEmpty: '空结果率',
         usageTokens: '注入 token',
         usageAvg: '平均/次',
@@ -146,7 +148,9 @@ window.__ModuleLoader__.load({
         usageCalls: 'calls',
         usageToday: 'today',
         usageHit: 'hit rate',
-        usageTrigger: 'trigger rate',
+        rulesTitle: 'Captured rules',
+        ruleRemove: 'Remove this rule',
+        rulesHint: 'Rules extracted from your earlier sessions; remove the wrong ones. Injected at session start.',
         usageEmpty: 'empty rate',
         usageTokens: 'injected tokens',
         usageAvg: 'avg/call',
@@ -502,6 +506,25 @@ window.__ModuleLoader__.load({
         s ? h('hr', { style: S.hr }) : null,
         s ? h('div', { style: { ...S.cardLabel, marginBottom: 4 } }, T.excludeTitle) : null,
         s ? h('div', { style: S.switchHint, marginBottom: 8 }, T.excludeHint) : null,
+        s && s.rules && s.rules.count
+          ? h('div', { style: { marginTop: 4 } },
+            h('div', { style: { ...S.cardLabel, marginBottom: 6 } }, `${T.rulesTitle} · ${s.rules.count}`),
+            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+              s.rules.items.map((rule) => h('div', {
+                key: rule.id,
+                style: { display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 11.5 },
+              },
+                h('span', { style: { flex: 1, lineHeight: 1.5 } }, rule.text),
+                h('button', {
+                  type: 'button', style: { ...S.ghost, padding: '0 4px', fontSize: 11 },
+                  title: T.ruleRemove, disabled: !!busy,
+                  onClick: () => run('rule-remove', { id: rule.id }),
+                }, '×'),
+              )),
+            ),
+            h('div', { style: S.switchHint, marginTop: 4 }, T.rulesHint),
+          )
+          : null,
         s ? h('div', null,
           ['workspaces', 'sessions', 'keywords'].map((kind) => {
             const label = kind === 'workspaces' ? T.excludeWs : kind === 'sessions' ? T.excludeSession : T.excludeKeyword;

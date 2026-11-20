@@ -429,6 +429,30 @@ await check('dense weight adapts to the query language', async () => {
   assert(zh === 0.7, `zh=${zh}`);
 });
 
+
+// ------------------------------------- 19. user-stated rules are captured
+await check('explicit user rules are captured, de-duplicated and removable', async () => {
+  const { extractRules, saveRules, loadRules, removeRule } = await import(
+    pathToFileURL(path.join(ROOT, 'service', 'rules.mjs')).href);
+  const rules = extractRules([
+    { role: 'user', text: '以后生成文档不要页眉，也不要小字。' },
+    { role: 'user', text: '这次先跑一下测试。' },
+    { role: 'assistant', text: '必须记住：以后不要页脚。' },
+  ]);
+  assert(rules.length === 1, `rules=${rules.length}`);
+  assert(rules[0].includes('页眉'), rules[0]);
+  const store = path.join(WORK, 'rules-store');
+  fs.mkdirSync(store, { recursive: true });
+  assert(saveRules(store, 's1', rules, '') === 1, 'first save should add');
+  assert(saveRules(store, 's2', rules, '') === 0, 'duplicate should be skipped');
+  assert(saveRules(store, 's3', rules, '- 以后生成文档不要页眉，也不要小字。') === 0,
+    'pinned duplicate should be skipped');
+  const loaded = loadRules(store);
+  assert(loaded.length === 1, `loaded=${loaded.length}`);
+  assert(removeRule(store, loaded[0].id) === 1, 'remove should drop one');
+  assert(loadRules(store).length === 0, 'store should be empty');
+});
+
 // --------------------------------------------------------------- summary
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { loadRules, removeRule } from './rules.mjs';
 
 const LOADED_VERSION = (() => {
   try {
@@ -414,6 +415,15 @@ export function createSettings(options) {
       failures: control().failures,
       exclude: readExclude(),
       usage: usageSummary(),
+      rules: (() => {
+        const all = loadRules(store);
+        return {
+          count: all.length,
+          items: all.slice(-10).reverse().map((r) => ({
+            id: r.id, text: r.text, session: r.session || null, at: r.at || 0,
+          })),
+        };
+      })(),
       human: {
         pinned: readPinnedCount(),
         glossary: readGlossaryCount(),
@@ -486,6 +496,10 @@ export function createSettings(options) {
       writeExclude(rules);
       return { ok: true, action: name, status: status() };
     }
+    if (name === 'rule-remove') {
+      const removed = removeRule(store, String(payload?.id || ''));
+      return { ok: removed > 0, action: name, removed, status: status() };
+    }
     if (name === 'notify-on' || name === 'notify-off') {
       writeJson(controlFile, { ...control(), notify: name === 'notify-on', updatedAt: at });
       return { ok: true, action: name, status: status() };
@@ -536,7 +550,7 @@ export function createSettings(options) {
       try { parsed = JSON.parse(body || '{}'); } catch { return json(res, 400, { ok: false, error: 'bad json' }); }
       const name = parsed.action;
       if (!['pause', 'resume', 'clear', 'reindex', 'notify-on', 'notify-off',
-        'exclude-add', 'exclude-remove'].includes(name)) {
+        'exclude-add', 'exclude-remove', 'rule-remove'].includes(name)) {
         return json(res, 400, { ok: false, error: `unsupported action: ${name}` });
       }
       try {

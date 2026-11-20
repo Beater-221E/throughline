@@ -497,8 +497,26 @@ export function apply(ctx, config = {}) {
             + rules.slice(0, 20).map((rule) => `- ${rule}`).join('\n');
         } catch { return ''; }
       };
+      // Rules captured from earlier sessions (user-stated, auto-extracted).
+      const autoRulesBlock = () => {
+        try {
+          const ctrl = JSON.parse(fs.readFileSync(path.join(store, 'control.json'), 'utf8'));
+          if (ctrl.injectRules === false) return '';
+        } catch { /* default: on */ }
+        try {
+          const lines = fs.readFileSync(path.join(store, 'rules.jsonl'), 'utf8')
+            .split('\n').filter(Boolean);
+          const rules = lines.slice(-8).map((line) => {
+            try { return JSON.parse(line); } catch { return null; }
+          }).filter(Boolean);
+          if (!rules.length) return '';
+          return '\nRules the user stated in earlier sessions (editable in Settings → Throughline):\n'
+            + rules.map((rule) => `- ${rule.text}`).join('\n');
+        } catch { return ''; }
+      };
       sp.systemPrompt.variable('throughline_index', indexSummary);
       sp.systemPrompt.variable('throughline_pinned', pinnedBlock);
+      sp.systemPrompt.variable('throughline_rules', autoRulesBlock);
       sp.systemPrompt.section({
         name: 'throughline',
         order: 50,
@@ -507,7 +525,7 @@ export function apply(ctx, config = {}) {
           + '我们之前定的/规则/约定), continues an older project, or asks about past preferences, '
           + 'plans or decisions; if the results do not contain the answer, say the memory has '
           + 'nothing relevant instead of guessing. Chinese queries retrieve best here; English is '
-          + 'fine for distinctive names, commands and terms.{{throughline_pinned}}',
+          + 'fine for distinctive names, commands and terms.{{throughline_pinned}}{{throughline_rules}}',
       });
     } catch { /* profiles without the system prompt service keep working */ }
   });
