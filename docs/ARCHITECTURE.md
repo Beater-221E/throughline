@@ -67,8 +67,8 @@ dense   = cosine(query, turn)                    (multilingual-e5-small, mean po
 lexical = FTS5 bm25 over the term stream
 hybrid  = 0.7 · z(dense) + 0.3 · z(lexical)      (THROUGHLINE_DENSE_WEIGHT, default 0.7)
 pinned  += 0.8                                   (rows with session_id = "pinned")
-select  = greedy MMR over the top 80, long turns cut to their matching sentences,
-          until the token budget (default 1500) is filled
+select  = greedy MMR over the top 40, long turns cut to their matching sentences,
+          at most 12 turns, until the token budget (default 1500) is filled
 ```
 
 `z` is per-query standardization. The dense/lexical mix is a knob: 0.3 measured best on a 1,167-turn

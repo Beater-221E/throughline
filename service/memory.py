@@ -124,6 +124,8 @@ def tokens(s):
 
 EXCERPTS = os.environ.get("THROUGHLINE_EXCERPTS", "1") != "0"
 MMR_LAMBDA = float(os.environ.get("THROUGHLINE_MMR", "0.35"))
+MAX_TURNS = int(os.environ.get("THROUGHLINE_MAX_TURNS", "12"))
+MAX_POOL = int(os.environ.get("THROUGHLINE_MAX_POOL", "40"))
 
 
 def make_excerpt(text, query, max_chars=600):
@@ -809,27 +811,31 @@ class Service:
         already selected turns; excerpts cut long turns to the matching
         sentences. Both changes target injected tokens, not ranking.
         """
-        pool = [(int(k), score_of(k), set(tokens(self.texts[k])))
-                for k in list(order)[:80]]
+        pool = []
+        for k in list(order)[:MAX_POOL]:
+            ts = set(tokens(self.texts[k]))
+            pool.append((int(k), score_of(k), ts, len(ts)))
         sel, used, chosen = [], 0, []
-        while pool:
+        while pool and len(sel) < MAX_TURNS:
             best_i, best_s = 0, -1e18
-            for i, (k, sc, ts) in enumerate(pool):
+            for i, (k, sc, ts, n) in enumerate(pool):
                 sim = 0.0
-                for cs in chosen:
+                for cs, cn in chosen:
                     inter = len(ts & cs)
                     if inter:
-                        sim = max(sim, inter / (len(ts | cs) or 1))
+                        j = inter / (n + cn - inter)
+                        if j > sim:
+                            sim = j
                 s = sc - MMR_LAMBDA * sim
                 if s > best_s:
                     best_i, best_s = i, s
-            k, sc, ts = pool.pop(best_i)
+            k, sc, ts, n = pool.pop(best_i)
             text = make_excerpt(self.texts[k], query) if EXCERPTS else self.texts[k]
             t = est_tok(text)
             if used + t > budget and sel:
                 continue
             sel.append((k, text, t))
-            chosen.append(ts)
+            chosen.append((ts, n))
             used += t
             if used >= budget:
                 break

@@ -1,7 +1,8 @@
 # Changelog
 
 ## 0.13.0 — injection efficiency, trigger policy, telemetry
-- Excerpts (sentence window around the match) and MMR de-duplication; default budget 3000 → 1500.
+- Excerpts (sentence window around the match) and MMR de-duplication; default budget 3000 → 1500;
+  at most 12 turns per call; selection profiled to ~25 ms.
 - Explicit trigger policy in the system prompt; `pinned.md` injected at session start
   (`control.json` → `injectPinned`).
 - Session-start telemetry; Settings shows trigger rate, calls/session and empty-result rate.
