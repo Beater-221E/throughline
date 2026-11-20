@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.0.0 — first stable release (2026-11-20)
+
+第一个稳定版本。功能与文档冻结如下：
+
+**检索**
+- 轮级混合检索：SQLite FTS5 + multilingual-e5-small（int8 ONNX）。
+- 中文词法通道：字符 bigram；英文查询自动切纯稠密通道（中文 0.7 / 英文 1.0）。
+- 注入精炼：MMR 去重、长轮次摘录、1500 token 预算、最多 12 条。
+- 人工层：`glossary.json` 术语扩展、`pinned.md` 规则（会话开始直接注入）。
+
+**入库**
+- 安装时自动全量、`agent/created` 触发增量；水位线、单写者锁、失败退避。
+- 排除规则（工作区/会话/关键词）、凭据脱敏（JS/Python 共用规则文件）、按会话替换、向量桶压缩。
+
+**产品**
+- 设置页：状态、来源与一键排除、暂停/重建/清空、逐条事件提示、用量与触发率统计。
+- 系统提示：显式触发策略；工具描述带示例。
+
+**工程**
+- 18 个回归用例；崩溃修复、健康检查与自动重启、日志轮转、用量记账。
+- 文档：中文 README、架构、技术报告、验证协议、路线图、变更记录。
+
 ## 0.14.0 — language-aware weighting
 - Queries without CJK characters use the dense channel only (weight 1.0); Chinese queries keep 0.7.
   Measured: overall nDCG 0.310 → 0.326, cross-lingual 0.072 → 0.117, anchors/paraphrase unchanged.

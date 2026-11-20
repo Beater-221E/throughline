@@ -1,6 +1,6 @@
 # Roadmap
 
-## Done
+## v1.0.0 已完成
 
 - Turn-level indexing with automatic bootstrap and per-session incremental ingest.
 - Hybrid ranking with CJK bigram lexical channel.
@@ -11,7 +11,7 @@
 - Local-credential redaction shared by JS and Python.
 - Test suite (`node tests/run.mjs`, 16 cases).
 
-## Candidates
+## 1.x 候选
 
 | Item | Why it is not done | Cost |
 |---|---|---|

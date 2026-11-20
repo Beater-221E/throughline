@@ -1,5 +1,7 @@
 # Throughline
 
+> 当前版本：**v1.0.0**（首个稳定版）。
+>
 > 给 [DeepSeek Harness](https://github.com/deepseek-ai) 用的本地跨会话记忆插件：把历史会话按「轮次」建索引，
 > 让 agent 用一个工具检索自己的过去，而不是让你重复交代。
 
