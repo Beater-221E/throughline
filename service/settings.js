@@ -2,7 +2,7 @@
  * Panel backend for the memory settings section.
  *
  * Pure Node (no DSH imports) so it can be exercised outside the Harness:
- *   node -e "import('./service/panel.js').then(...)"
+ *   node -e "import('./service/settings.js').then(...)"
  *
  * Everything here reads the on-disk artifacts the indexer already writes
  * (ingest.json, watermark.json, the bucket manifest) plus file sizes; the only
@@ -95,7 +95,7 @@ function prettyWorkspace(slug) {
   return raw;
 }
 
-export function createPanel(options) {
+export function createSettings(options) {
   const store = options.store;
   const dbPath = options.dbPath;
   const bucketDir = path.join(store, path.basename(dbPath, path.extname(dbPath)) + '.buckets');

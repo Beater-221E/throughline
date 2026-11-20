@@ -11,8 +11,8 @@ time.
 | `index.js` | DSH Host plugin: registers `memory_search`, listens for `agent/created`, manages the Python child process, exposes the settings routes, logs usage, injects the session-start memory hint. |
 | `client.js` | Web client: the Settings section and the bottom-right toast layer. |
 | `service/memory.py` | SQLite + FTS5 + ONNX embeddings; hybrid ranking; the `serve` JSON-lines protocol; compaction and repair. |
-| `service/sessions.mjs` | Extracts dialogue turns from DSH session logs (zstd frames), applies exclusions/redaction, drives ingestion. |
-| `service/panel.js` | Route handlers and aggregation for the settings page (status, usage, history, exclusions). |
+| `service/ingest.mjs` | Extracts dialogue turns from DSH session logs (zstd frames), applies exclusions/redaction, drives ingestion. |
+| `service/settings.js` | Route handlers and aggregation for the settings page (status, usage, history, exclusions). |
 | `service/redaction.json` | Credential patterns shared by the JS and Python paths. |
 | `tests/run.mjs` | End-to-end smoke and regression suite (no DSH required). |
 
@@ -20,7 +20,7 @@ time.
 
 ```
 sessions/*.jsonl.zstd
-  │  service/sessions.mjs: frame-by-frame zstd decode, keep user messages whose source is the user
+  │  service/ingest.mjs: frame-by-frame zstd decode, keep user messages whose source is the user
   │  and the text blocks of assistant messages; drop injected context, tool calls and results
   ▼
 turns.jsonl ──► memory.py add ──► SQLite (turns + FTS5) + memory.buckets/*.npz

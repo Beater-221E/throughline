@@ -196,47 +196,47 @@ await check('service re-embeds rows a crashed add left behind', async () => {
 
 // ------------------------------------------- 8. panel status / pause / resume
 await check('panel reports revision and honours pause', async () => {
-  const { createPanel } = await import(pathToFileURL(path.join(ROOT, 'service', 'panel.js')).href);
+  const { createSettings } = await import(pathToFileURL(path.join(ROOT, 'service', 'settings.js')).href);
   const store = path.join(WORK, 'panel-store');
   fs.mkdirSync(store, { recursive: true });
   const db = path.join(store, 'memory.sqlite');
   addTurns(db);
-  const panel = createPanel({
+  const settings = createSettings({
     store, dbPath: db, python: PY, node: process.execPath,
-    service: MEMORY, ingest: path.join(ROOT, 'service', 'sessions.mjs'),
+    service: MEMORY, ingest: path.join(ROOT, 'service', 'ingest.mjs'),
     home: WORK, modelDir: MODEL, minAgeSec: 0,
   });
-  const st = panel.status();
+  const st = settings.status();
   assert(st.revision && typeof st.revision.manifestMtime === 'number', 'revision missing');
   assert(st.revision.count === 3, `revision.count=${st.revision.count}`);
   assert(typeof st.stale === 'boolean', 'stale flag missing');
   assert(st.failures === 0, `failures=${st.failures}`);
-  assert(panel.canIngest() === true, 'ingest should be allowed by default');
-  await panel.action('pause');
-  assert(panel.canIngest() === false, 'pause must block ingest');
-  await panel.action('resume');
-  assert(panel.canIngest() === true, 'resume must allow ingest');
+  assert(settings.canIngest() === true, 'ingest should be allowed by default');
+  await settings.action('pause');
+  assert(settings.canIngest() === false, 'pause must block ingest');
+  await settings.action('resume');
+  assert(settings.canIngest() === true, 'resume must allow ingest');
 });
 
 // ------------------------------------------------------- 9. failure backoff
 await check('two ingest failures block the next trigger until the window ends', async () => {
-  const { createPanel } = await import(pathToFileURL(path.join(ROOT, 'service', 'panel.js')).href);
+  const { createSettings } = await import(pathToFileURL(path.join(ROOT, 'service', 'settings.js')).href);
   const store = path.join(WORK, 'backoff-store');
   fs.mkdirSync(store, { recursive: true });
   const db = path.join(store, 'memory.sqlite');
   fs.writeFileSync(path.join(store, 'control.json'), JSON.stringify({
     ingestFailures: 2, backoffUntil: Date.now() + 60_000,
   }), 'utf8');
-  const panel = createPanel({
+  const settings = createSettings({
     store, dbPath: db, python: PY, node: process.execPath,
-    service: MEMORY, ingest: path.join(ROOT, 'service', 'sessions.mjs'),
+    service: MEMORY, ingest: path.join(ROOT, 'service', 'ingest.mjs'),
     home: WORK, modelDir: MODEL, minAgeSec: 0,
   });
-  assert(panel.canIngest() === false, 'backoff window must block ingest');
+  assert(settings.canIngest() === false, 'backoff window must block ingest');
   fs.writeFileSync(path.join(store, 'control.json'), JSON.stringify({
     ingestFailures: 2, backoffUntil: Date.now() - 1000,
   }), 'utf8');
-  assert(panel.canIngest() === true, 'expired backoff must allow ingest');
+  assert(settings.canIngest() === true, 'expired backoff must allow ingest');
 });
 
 
@@ -279,7 +279,7 @@ await check('excluded workspaces are skipped by ingestion', async () => {
   const exFile = path.join(WORK, 'exclude.json');
   fs.writeFileSync(exFile, JSON.stringify({ workspaces: [ws], sessions: [], keywords: [] }), 'utf8');
   const runSessions = (excludeFile) => spawnSync(process.execPath, [
-    path.join(ROOT, 'service', 'sessions.mjs'), '--db', db, '--home', home,
+    path.join(ROOT, 'service', 'ingest.mjs'), '--db', db, '--home', home,
     '--python', PY, '--model-dir', MODEL, '--full', '--min-age', '0',
     '--exclude-file', excludeFile,
   ], { encoding: 'utf8', timeout: 180_000 });
@@ -317,7 +317,7 @@ await check('pinned facts are ingested and boosted to the top', async () => {
     '- 发布规则：提交前必须运行 scripts/audit.sh --strict，审计失败禁止发布。\n'
     + '- 部署窗口：每周二禁止上线。\n', 'utf8');
   const r = spawnSync(process.execPath, [
-    path.join(ROOT, 'service', 'sessions.mjs'), '--db', db, '--home', home,
+    path.join(ROOT, 'service', 'ingest.mjs'), '--db', db, '--home', home,
     '--python', PY, '--model-dir', MODEL, '--full', '--min-age', '0',
   ], { encoding: 'utf8', timeout: 180_000 });
   assert(r.status === 0, `sessions exit ${r.status}: ${(r.stderr || '').slice(-300)}`);
@@ -342,19 +342,19 @@ await check('glossary terms expand the lexical query', async () => {
 
 // ---------------------------------------- 15. worker events reach the toast feed
 await check('per-session ingest events surface in the panel feed', async () => {
-  const { createPanel } = await import(pathToFileURL(path.join(ROOT, 'service', 'panel.js')).href);
+  const { createSettings } = await import(pathToFileURL(path.join(ROOT, 'service', 'settings.js')).href);
   const store = path.join(WORK, 'feed-store');
   fs.mkdirSync(store, { recursive: true });
   const db = path.join(store, 'memory.sqlite');
-  const panel = createPanel({
+  const settings = createSettings({
     store, dbPath: db, python: PY, node: process.execPath,
-    service: MEMORY, ingest: path.join(ROOT, 'service', 'sessions.mjs'),
+    service: MEMORY, ingest: path.join(ROOT, 'service', 'ingest.mjs'),
     home: WORK, modelDir: MODEL, minAgeSec: 0,
   });
-  panel.status(); // baselines the event log offset
+  settings.status(); // baselines the event log offset
   fs.appendFileSync(path.join(store, 'events.jsonl'),
     JSON.stringify({ at: Date.now(), kind: 'turns', session: 'session-abc', turns: 12 }) + '\n', 'utf8');
-  const st = panel.status();
+  const st = settings.status();
   const hit = (st.events || []).find((e) => e.kind === 'turns' && e.turns === 12);
   assert(hit, 'worker event missing from the panel feed');
   assert(st.events.length <= 20, `feed too small: ${st.events.length}`);
@@ -363,7 +363,7 @@ await check('per-session ingest events surface in the panel feed', async () => {
 
 // ------------------------------------------------- 16. usage accounting summary
 await check('usage summary aggregates calls, tokens and avoided tokens', async () => {
-  const { createPanel } = await import(pathToFileURL(path.join(ROOT, 'service', 'panel.js')).href);
+  const { createSettings } = await import(pathToFileURL(path.join(ROOT, 'service', 'settings.js')).href);
   const store = path.join(WORK, 'usage-store');
   fs.mkdirSync(store, { recursive: true });
   const now = Date.now();
@@ -374,12 +374,12 @@ await check('usage summary aggregates calls, tokens and avoided tokens', async (
   ].join('\n') + '\n', 'utf8');
   fs.writeFileSync(path.join(store, 'session_stats.json'),
     JSON.stringify({ s1: { tokens: 5000, turns: 40 } }), 'utf8');
-  const panel = createPanel({
+  const settings = createSettings({
     store, dbPath: path.join(store, 'memory.sqlite'), python: PY, node: process.execPath,
-    service: MEMORY, ingest: path.join(ROOT, 'service', 'sessions.mjs'),
+    service: MEMORY, ingest: path.join(ROOT, 'service', 'ingest.mjs'),
     home: WORK, modelDir: MODEL, minAgeSec: 0,
   });
-  const u = panel.status().usage;
+  const u = settings.status().usage;
   assert(u.calls === 2, `calls=${u.calls}`);
   assert(u.errors === 1, `errors=${u.errors}`);
   assert(u.injectedTokens === 1000, `tokens=${u.injectedTokens}`);

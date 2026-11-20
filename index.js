@@ -10,7 +10,7 @@
  *   - every `agent/created` -> incremental check that indexes only finished
  *     sessions (the live session is always excluded; DSH owns it).
  */
-import { createPanel } from './service/panel.js';
+import { createSettings } from './service/settings.js';
 import { spawn } from 'node:child_process';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +23,7 @@ export const inject = ['tools'];
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SERVICE = path.join(HERE, 'service', 'memory.py');
-const INGEST = path.join(HERE, 'service', 'sessions.mjs');
+const INGEST = path.join(HERE, 'service', 'ingest.mjs');
 const VENDOR = path.join(HERE, 'service', 'vendor');
 const MODEL = path.join(HERE, 'service', 'model');
 
@@ -108,7 +108,7 @@ export function apply(ctx, config = {}) {
   const home = config.dshHome || dshHome(profileDir);
   const store = path.dirname(dbPath);
   const statusFile = path.join(store, 'ingest.json');
-  const panel = createPanel({
+  const settings = createSettings({
     store, dbPath, python, node, home, modelDir, minAgeSec, profileDir,
     service: SERVICE, ingest: INGEST,
     serviceState: () => ({ ...health }),
@@ -283,7 +283,7 @@ export function apply(ctx, config = {}) {
       worker.on('error', () => { /* status file carries the failure */ });
       worker.unref();
       state.worker = worker;
-      try { panel.record({ kind: 'ingest-start', full: !!full }); } catch { /* ignore */ }
+      try { settings.record({ kind: 'ingest-start', full: !!full }); } catch { /* ignore */ }
       return worker.pid;
     } catch {
       return null;
@@ -300,7 +300,7 @@ export function apply(ctx, config = {}) {
     const now = Date.now();
     if (now - state.lastCheck < 5000) return;
     state.lastCheck = now;
-    if (!panel.canIngest()) return;
+    if (!settings.canIngest()) return;
     const st = indexState();
     // No index yet, or an interrupted bootstrap: rebuild from scratch.
     runIngest(id, !st.exists || st.bytes === 0 || !st.watermark);
@@ -410,11 +410,11 @@ export function apply(ctx, config = {}) {
       } catch (e) {
         appendUsage({ at: Date.now(), ok: false, error: String(e?.message || e).slice(0, 120),
           session: state.lastSession || null, query_len: query.length });
-        try { panel.record({ kind: 'error', message: String(e?.message || e).slice(0, 160) }); } catch { /* ignore */ }
+        try { settings.record({ kind: 'error', message: String(e?.message || e).slice(0, 160) }); } catch { /* ignore */ }
         throw e;
       }
       // Self-heal: an empty index with no ingest ever started gets a bootstrap.
-      if (res.mode === 'empty' && autoIngest && panel.canIngest()) {
+      if (res.mode === 'empty' && autoIngest && settings.canIngest()) {
         const st = readStatus();
         if (!st || Date.now() - Number(st.at || 0) > 60_000) {
           runIngest(state.lastSession, true);
@@ -432,7 +432,7 @@ export function apply(ctx, config = {}) {
         sources: [...new Set(out.turns.map((t) => t.session_id).filter(Boolean))],
       });
       try {
-        panel.record({
+        settings.record({
           kind: 'search',
           query: query.length > 90 ? `${query.slice(0, 90)}…` : query,
           turns: out.turns.length,
@@ -455,7 +455,7 @@ export function apply(ctx, config = {}) {
     try {
       const indexSummary = () => {
         try {
-          const st = panel.status();
+          const st = settings.status();
           const turns = Number(st.index?.turns || 0);
           const sessions = Number(st.index?.sessions || 0);
           if (!turns) return 'the local memory index is still empty';
@@ -484,10 +484,10 @@ export function apply(ctx, config = {}) {
   ctx.inject(['webServer'], (webCtx) => {
     try {
       routeDisposers.push(webCtx.webServer.register({
-        kind: 'exact', path: '/throughline/status', handler: panel.handleStatus,
+        kind: 'exact', path: '/throughline/status', handler: settings.handleStatus,
       }));
       routeDisposers.push(webCtx.webServer.register({
-        kind: 'exact', path: '/throughline/action', handler: panel.handleAction,
+        kind: 'exact', path: '/throughline/action', handler: settings.handleAction,
       }));
     } catch { /* no web surface */ }
   });
