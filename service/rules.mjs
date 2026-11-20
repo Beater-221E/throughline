@@ -14,12 +14,19 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-/** Wording that marks a sentence as a stated rule rather than a task. */
-const CUE = /(不要|必须|需要|应该|以后|每次|统一|一律|优先|避免|禁止|记得|记住|规则|规范|约定|简化|清理|整理|保持|不能|别忘|要求)/;
+/** Only explicit durability markers count; generic words like 规则 appear in
+ *  discussions about rules and produced too many false positives. */
+const DURABLE = /记住|记得|以后|从现在起|下次|每次/;
+/** Sentences that talk *about* rules rather than state one. */
+const DISCUSSION = /我认为|我觉得|观察到|理论上|还是认为|应该由|是一种|是合理|想法|讨论|意义|假设/;
+/** Questions and meta-discussion are never rules. */
+const QUESTION = /[？?]\s*$|吗|呢|是否|为什么|怎么|如何|什么|能不能|可不可以|你觉得|你认为|有什么/;
+const META = /^(动机|因为|所以|但是|如果|另外|而且|不过|也就是说|其次|同时)/;
 const MIN_CHARS = 8;
-const MAX_CHARS = 160;
+const MAX_CHARS = 100;
 const PER_SESSION = 5;
 const TOTAL_CAP = 200;
+export const INJECT_CAP = 5;
 
 export function normalize(text) {
   return String(text).replace(/[\s，。！？、；：,.!?;:（）()"“”'']/g, '').toLowerCase();
@@ -38,7 +45,8 @@ export function extractRules(turns) {
     for (const raw of String(turn.text || '').split(/(?<=[。！？!?])|\n+/)) {
       const sentence = raw.replace(/\s+/g, ' ').trim();
       if (sentence.length < MIN_CHARS || sentence.length > MAX_CHARS) continue;
-      if (!CUE.test(sentence)) continue;
+      if (QUESTION.test(sentence) || META.test(sentence) || DISCUSSION.test(sentence)) continue;
+      if (!DURABLE.test(sentence)) continue;
       const key = normalize(sentence);
       if (!key || seen.has(key)) continue;
       seen.add(key);

@@ -437,6 +437,8 @@ await check('explicit user rules are captured, de-duplicated and removable', asy
   const rules = extractRules([
     { role: 'user', text: '以后生成文档不要页眉，也不要小字。' },
     { role: 'user', text: '这次先跑一下测试。' },
+    { role: 'user', text: '你能不能参考 overleaf 的界面来设计我们的界面？' },
+    { role: 'user', text: '动机是，在不同会话中旧经验需要重新检索，这很麻烦。' },
     { role: 'assistant', text: '必须记住：以后不要页脚。' },
   ]);
   assert(rules.length === 1, `rules=${rules.length}`);

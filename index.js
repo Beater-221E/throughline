@@ -506,7 +506,7 @@ export function apply(ctx, config = {}) {
         try {
           const lines = fs.readFileSync(path.join(store, 'rules.jsonl'), 'utf8')
             .split('\n').filter(Boolean);
-          const rules = lines.slice(-8).map((line) => {
+          const rules = lines.slice(-5).map((line) => {
             try { return JSON.parse(line); } catch { return null; }
           }).filter(Boolean);
           if (!rules.length) return '';
@@ -514,6 +514,7 @@ export function apply(ctx, config = {}) {
             + rules.map((rule) => `- ${rule.text}`).join('\n');
         } catch { return ''; }
       };
+      sp.systemPrompt.variable('throughline_store', () => store);
       sp.systemPrompt.variable('throughline_index', indexSummary);
       sp.systemPrompt.variable('throughline_pinned', pinnedBlock);
       sp.systemPrompt.variable('throughline_rules', autoRulesBlock);
@@ -525,7 +526,10 @@ export function apply(ctx, config = {}) {
           + '我们之前定的/规则/约定), continues an older project, or asks about past preferences, '
           + 'plans or decisions; if the results do not contain the answer, say the memory has '
           + 'nothing relevant instead of guessing. Chinese queries retrieve best here; English is '
-          + 'fine for distinctive names, commands and terms.{{throughline_pinned}}{{throughline_rules}}',
+          + 'fine for distinctive names, commands and terms. When the user states a lasting rule or '
+          + 'preference (以后/每次/必须/不要, or explicitly asks to remember something), append it to '
+          + '{{throughline_store}}/pinned.md as a "- " line; do not record temporary tasks.'
+          + '{{throughline_pinned}}{{throughline_rules}}',
       });
     } catch { /* profiles without the system prompt service keep working */ }
   });

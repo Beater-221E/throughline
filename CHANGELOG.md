@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 — reliable rule capture, accurate index summary
+- `stats.json` is rewritten after every add, so the session-start summary no longer falls back to
+  the run counts (it briefly showed "209 turns" instead of the corpus size).
+- Auto-extraction now requires explicit durability markers (记住/以后/每次/下次); questions and
+  rule discussions are discarded, and at most 5 rules are injected.
+- The system prompt asks the agent to append lasting user rules to `pinned.md` directly, which is
+  the reliable capture path (heuristic extraction alone was too noisy or too narrow).
+
 ## 1.1.0 — rule capture
 - Explicit user-stated rules ("以后…", "必须…", "不要…") are extracted during ingest into `rules.jsonl`
   and injected at the next session start; no assistant-generated knowledge is stored.

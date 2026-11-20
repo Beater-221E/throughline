@@ -475,6 +475,30 @@ def import_legacy(con, db):
     return len(ids)
 
 
+def write_stats_cache(con, db):
+    """Keep stats.json in sync with the DB after an add.
+
+    The panel reads stats.json for the index summary; deleting it after every
+    add made the summary fall back to the *run* counts (e.g. "209 turns") until
+    the next refresh. Writing the totals here keeps the summary correct.
+    """
+    dbp, _, _ = db_paths(db)
+    man = load_manifest(db) or {}
+    bdir = bucket_dir(db)
+    vmb = sum(p.stat().st_size for p in bdir.glob("*.npz")) / 1e6 if bdir.exists() else 0.0
+    n = con.execute("SELECT COUNT(*) FROM turns").fetchone()[0]
+    sess = con.execute("SELECT COUNT(DISTINCT session_id) FROM turns").fetchone()[0]
+    vec = con.execute("SELECT COUNT(*) FROM turns WHERE vec_ok=1").fetchone()[0]
+    payload = {
+        "turns": n, "sessions": sess, "vectors": vec, "model_ok": True,
+        "buckets": len(man.get("buckets", [])), "bucket_cap": man.get("cap"),
+        "db_mb": round(dbp.stat().st_size / 1e6, 2) if dbp.exists() else 0,
+        "vectors_mb": round(vmb, 2), "at": int(time.time() * 1000),
+    }
+    (pathlib.Path(db).resolve().parent / "stats.json").write_text(
+        json.dumps(payload), encoding="utf-8")
+
+
 def compact_buckets(con, db):
     """Rewrite the bucket set to only the vectors still referenced by rows.
 
@@ -669,7 +693,7 @@ def add_jsonl(db, jsonl, model_dir=None, status=None):
     if deleted:
         compact_buckets(con, db)
     try:
-        (pathlib.Path(db).resolve().parent / "stats.json").unlink()
+        write_stats_cache(con, db)
     except Exception:
         pass
     man = load_manifest(db) or {"count": 0, "buckets": []}
