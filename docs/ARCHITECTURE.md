@@ -57,7 +57,7 @@ query time:
 - CJK character bigrams and unigrams for every CJK run
 
 FTS5 stores the joined terms; queries OR up to 96 distinct terms. This is the single largest recall
-improvement measured on the project (see `EVALUATION.md`).
+improvement measured on the project (see `TECHNICAL-REPORT.md`).
 
 ## Ranking
 
